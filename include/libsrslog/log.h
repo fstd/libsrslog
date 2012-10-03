@@ -59,6 +59,12 @@
 #define VDC(EC,FMT,ARGS)  xvdbgc (__FILE__, __LINE__, __func__,               (EC), (FMT), (ARGS))
 #define VDE(FMT,ARGS)     xvdbg  (__FILE__, __LINE__, __func__,                     (FMT), (ARGS))
 
+void log_set_deflevel(int lvl);
+int log_get_deflevel(void);
+
+void log_set_deffancy(bool fcy);
+bool log_get_deffancy(void);
+
 void log_set_level(const char *file, int lvl);
 int log_get_level(const char *file);
 

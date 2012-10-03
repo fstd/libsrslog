@@ -18,7 +18,6 @@
 
 
 #define LOGBUFSZ 2048
-#define DEF_LOGLVL LOGLVL_ERR
 #define DEF_STR stderr
 #define DEF_FANCY false
 
@@ -55,6 +54,8 @@ static FILE *s_outstr;
 static time_t s_timeoff;
 static pthread_mutex_t s_mtx;
 static bool s_mtxinit;
+static int s_deflvl = LOGLVL_WARN;
+static bool s_deffcy;
 
 
 static void vlogf(const char *file, int line, const char *func, int lvl,
@@ -69,6 +70,44 @@ static pthread_mutex_t* mtx(void);
 static void strNcat(char *dest, const char *src, size_t destsz);
 static void xensure(int ret, int exp, const char *fn, const char *file,
                                              int line, const char *caller);
+
+
+void
+log_set_deflevel(int lvl)
+{
+	ENSURE(pthread_mutex_lock(mtx()), 0);
+	s_deflvl = lvl;
+	ENSURE(pthread_mutex_unlock(mtx()), 0);
+}
+
+
+int
+log_get_deflevel(void)
+{
+	ENSURE(pthread_mutex_lock(mtx()), 0);
+	int i = s_deflvl;
+	ENSURE(pthread_mutex_unlock(mtx()), 0);
+	return i;
+}
+
+
+void
+log_set_deffancy(bool fcy)
+{
+	ENSURE(pthread_mutex_lock(mtx()), 0);
+	s_deffcy = fcy;
+	ENSURE(pthread_mutex_unlock(mtx()), 0);
+}
+
+
+bool
+log_get_deffancy(void)
+{
+	ENSURE(pthread_mutex_lock(mtx()), 0);
+	bool b = s_deffcy;
+	ENSURE(pthread_mutex_unlock(mtx()), 0);
+	return b;
+}
 
 
 void
@@ -587,7 +626,7 @@ getctx(const char *file)
 {
 	struct logctx_s *ctx = findctx(file);
 	if (!ctx) {
-		ctx = log_register(file, DEF_LOGLVL, DEF_FANCY);
+		ctx = log_register(file, s_deflvl, s_deffcy);
 		addctx(ctx);
 	}
 	return ctx;
