@@ -3,7 +3,6 @@
 
 AC_PREREQ([2.69])
 AC_INIT([libsrslog], [0.0.1], [van.fisted@googlemail.com])
-AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([src/logtest.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
