@@ -4,19 +4,26 @@
 
 #include <stdlib.h>
 
+#define LOG_MODULE 0
+
 #include <libsrslog/log.h>
 
 int
 main(int argc, char **argv)
 {
-	LOG_LEVEL(LOGLVL_DBG);
-	D("sup");
-	N("fgt");
-	W("blah");
-	LOG_FANCY(true);
-	D("whoa");
-	N("this is");
-	W("so fancy but");
-	E("this is it.");
+	log_setprgnam("logtest");
+	log_regmod(0, "mod1");
+	log_regmod(1, "mod2");
+	A("always");
+	T("trace");
+	V("vivi");
+	D("debug");
+	I("info");
+	N("notice");
+#undef LOG_MODULE
+#define LOG_MODULE 1
+	W("warning");
+	E("error");
+	C("critical");
 	return EXIT_SUCCESS;
 }

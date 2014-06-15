@@ -1,116 +1,109 @@
-/* log.h - (C) 2012, Timo Buhrmester
+/* log.h - (C) 2012-14, Timo Buhrmester
  * libsrslog - A srs lib
-  * See README for contact-, COPYING for license information.  */
+ * See README for contact-, COPYING for license information.  */
 
-#ifndef FSTD_LOG_H
-#define FSTD_LOG_H
+#ifndef LIBSRSLOG_LOG_H
+#define LIBSRSLOG_LOG_H 1
 
-#include <stdarg.h>
-#include <stdio.h>
 #include <stdbool.h>
-#include <time.h>
-#include <pthread.h>
+#include <limits.h>
+#include <errno.h>
 
-#define LOGLVL_ERR 0
-#define LOGLVL_WARN 1
-#define LOGLVL_NOTE 2
-#define LOGLVL_DBG 3
+#include <syslog.h>
 
-#define LOG_LEVEL(LVL) do{log_set_level(__FILE__, (LVL));}while(0)
-#define LOG_FANCY(FCY) do{log_set_fancy(__FILE__, (FCY));}while(0)
-#define LOG_THRNAME(NAME) do{log_set_thrname(pthread_self(), (NAME));}while(0)
+#ifndef LOG_MODULE
+# define LOG_MODULE -1
+#endif
 
-#define LOG_GET_LEVEL log_get_level(__FILE__)
-#define LOG_IS_FANCY log_is_fancy(__FILE__)
-#define LOG_GET_THRNAME log_get_thrname(pthread_self())
+/* our two higher-than-debug custom loglevels */
+#define LOG_TRACE (LOG_VIVI+1)
+#define LOG_VIVI (LOG_DEBUG+1)
 
-/*explanation:                                                            
- * macro naming convention is V?[EWND][CE]? (regex)                          
- * the V* class of macros is meant to be called with a va_list argument.     
- * E(rror), W(arning), N(otice) and D(ebug) denote the log level             
- * the *C-flavour of these macros is supplied with an integer representing an errno-value whose string rep. is printed out
- * the *E-flavour will instead use the errno-value of the actual errno       
- * the plain group with neither E nor C disregards errno                     
- * the E*-functions are special in that they eventually call exit()          
- */                                       
+//[TVDINWE](): log with Trace, Vivi, Debug, Info, Notice, Warn, Error severity.
+//[TVDINWE]E(): similar, but also append ``errno'' message
+//C(), CE(): as above but critical severity; calls exit(EXIT_FAILURE)
+//A(): always print (and do not decorate w/ time or colors or anything
 
-#define E(FMT,ARGS...)     xerrx (__FILE__, __LINE__, __func__, EXIT_FAILURE,       (FMT), ##ARGS)
-#define EC(EC,FMT,ARGS...) xerrc (__FILE__, __LINE__, __func__, EXIT_FAILURE, (EC), (FMT), ##ARGS)
-#define EE(FMT,ARGS...)    xerr  (__FILE__, __LINE__, __func__, EXIT_FAILURE,       (FMT), ##ARGS)
-#define W(FMT,ARGS...)     xwarnx(__FILE__, __LINE__, __func__,                     (FMT), ##ARGS)
-#define WC(EC,FMT,ARGS...) xwarnc(__FILE__, __LINE__, __func__,               (EC), (FMT), ##ARGS)
-#define WE(FMT,ARGS...)    xwarn (__FILE__, __LINE__, __func__,                     (FMT), ##ARGS)
-#define N(FMT,ARGS...)     xnotex(__FILE__, __LINE__, __func__,                     (FMT), ##ARGS)
-#define NC(EC,FMT,ARGS...) xnotec(__FILE__, __LINE__, __func__,               (EC), (FMT), ##ARGS)
-#define NE(FMT,ARGS...)    xnote (__FILE__, __LINE__, __func__,                     (FMT), ##ARGS)
-#define D(FMT,ARGS...)     xdbgx (__FILE__, __LINE__, __func__,                     (FMT), ##ARGS)
-#define DC(EC,FMT,ARGS...) xdbgc (__FILE__, __LINE__, __func__,               (EC), (FMT), ##ARGS)
-#define DE(FMT,ARGS...)    xdbg  (__FILE__, __LINE__, __func__,                     (FMT), ##ARGS)
-#define VE(FMT,ARGS)      xverrx (__FILE__, __LINE__, __func__,                     (FMT), (ARGS))
-#define VEC(EC,FMT,ARGS)  xverrc (__FILE__, __LINE__, __func__,               (EC), (FMT), (ARGS))
-#define VEE(FMT,ARGS)     xverr  (__FILE__, __LINE__, __func__,                     (FMT), (ARGS))
-#define VW(FMT,ARGS)      xvwarnx(__FILE__, __LINE__, __func__,                     (FMT), (ARGS))
-#define VWC(EC,FMT,ARGS)  xvwarnc(__FILE__, __LINE__, __func__,               (EC), (FMT), (ARGS))
-#define VWE(FMT,ARGS)     xvwarn (__FILE__, __LINE__, __func__,                     (FMT), (ARGS))
-#define VN(FMT,ARGS)      xvnotex(__FILE__, __LINE__, __func__,                     (FMT), (ARGS))
-#define VNC(EC,FMT,ARGS)  xvnotec(__FILE__, __LINE__, __func__,               (EC), (FMT), (ARGS))
-#define VNE(FMT,ARGS)     xvnote (__FILE__, __LINE__, __func__,                     (FMT), (ARGS))
-#define VD(FMT,ARGS)      xvdbgx (__FILE__, __LINE__, __func__,                     (FMT), (ARGS))
-#define VDC(EC,FMT,ARGS)  xvdbgc (__FILE__, __LINE__, __func__,               (EC), (FMT), (ARGS))
-#define VDE(FMT,ARGS)     xvdbg  (__FILE__, __LINE__, __func__,                     (FMT), (ARGS))
+// ----- logging interface -----
 
-void log_set_deflevel(int lvl);
-int log_get_deflevel(void);
+#define A(F,A...)                                                            \
+    log_log(-1,INT_MIN,-1,__FILE__,__LINE__,__func__,F,##A)
 
-void log_set_deffancy(bool fcy);
-bool log_get_deffancy(void);
 
-void log_set_level(const char *file, int lvl);
-int log_get_level(const char *file);
+#define T(F,A...)                                                            \
+    log_log(LOG_MODULE,LOG_TRACE,-1,__FILE__,__LINE__,__func__,F,##A)
 
-void log_set_fancy(const char *file, bool fancy);
-bool log_is_fancy(const char *file);
+#define TE(F,A...)                                                           \
+    log_log(LOG_MODULE,LOG_TRACE,errno,__FILE__,__LINE__,__func__,F,##A)
 
-void log_set_str(FILE *str);
-FILE* log_get_str(void);
+#define V(F,A...)                                                            \
+    log_log(LOG_MODULE,LOG_VIVI,-1,__FILE__,__LINE__,__func__,F,##A)
 
-void log_set_timeoff(time_t timeoff);
-time_t log_get_timeoff(void);
+#define VE(F,A...)                                                           \
+    log_log(LOG_MODULE,LOG_VIVI,errno,__FILE__,__LINE__,__func__,F,##A)
 
-int log_count_mods(void);
-const char* log_get_mod(int index);
+#define D(F,A...)                                                            \
+    log_log(LOG_MODULE,LOG_DEBUG,-1,__FILE__,__LINE__,__func__,F,##A)
 
-void log_set_thrname(pthread_t thr, const char *name);
-const char* log_get_thrname(pthread_t thr);
+#define DE(F,A...)                                                           \
+    log_log(LOG_MODULE,LOG_DEBUG,errno,__FILE__,__LINE__,__func__,F,##A)
 
-/* ------ end of interface ------ */
+#define I(F,A...)                                                            \
+    log_log(LOG_MODULE,LOG_INFO,-1,__FILE__,__LINE__,__func__,F,##A)
 
-void xerr(const char *file, int line, const char *func, int eval, const char *fmt, ...);
-void xerrc(const char *file, int line, const char *func, int eval, int code, const char *fmt, ...);
-void xerrx(const char *file, int line, const char *func, int eval, const char *fmt, ...);
-void xverr (const char *file, int line, const char *func, int eval, const char *fmt, va_list args);
-void xverrc(const char *file, int line, const char *func, int eval, int code, const char *fmt, va_list args);
-void xverrx(const char *file, int line, const char *func, int eval, const char *fmt, va_list args);
+#define IE(F,A...)                                                           \
+    log_log(LOG_MODULE,LOG_INFO,errno,__FILE__,__LINE__,__func__,F,##A)
 
-void xwarn(const char *file, int line, const char *func, const char *fmt, ...);
-void xwarnc(const char *file, int line, const char *func, int code, const char *fmt, ...);
-void xwarnx(const char *file, int line, const char *func, const char *fmt, ...);
-void xvwarn (const char *file, int line, const char *func, const char *fmt, va_list args);
-void xvwarnc(const char *file, int line, const char *func, int code, const char *fmt, va_list args);
-void xvwarnx(const char *file, int line, const char *func, const char *fmt, va_list args);
+#define N(F,A...)                                                            \
+    log_log(LOG_MODULE,LOG_NOTICE,-1,__FILE__,__LINE__,__func__,F,##A)
 
-void xnote(const char *file, int line, const char *func, const char *fmt, ...);
-void xnotec(const char *file, int line, const char *func, int code, const char *fmt, ...);
-void xnotex(const char *file, int line, const char *func, const char *fmt, ...);
-void xvnote (const char *file, int line, const char *func, const char *fmt, va_list args);
-void xvnotec(const char *file, int line, const char *func, int code, const char *fmt, va_list args);
-void xvnotex(const char *file, int line, const char *func, const char *fmt, va_list args);
+#define NE(F,A...)                                                           \
+    log_log(LOG_MODULE,LOG_NOTICE,errno,__FILE__,__LINE__,__func__,F,##A)
 
-void xdbg(const char *file, int line, const char *func, const char *fmt, ...);
-void xdbgc(const char *file, int line, const char *func, int code, const char *fmt, ...);
-void xdbgx(const char *file, int line, const char *func, const char *fmt, ...);
-void xvdbg (const char *file, int line, const char *func, const char *fmt, va_list args);
-void xvdbgc(const char *file, int line, const char *func, int code, const char *fmt, va_list args);
-void xvdbgx(const char *file, int line, const char *func, const char *fmt, va_list args);
+#define W(F,A...)                                                            \
+    log_log(LOG_MODULE,LOG_WARNING,-1,__FILE__,__LINE__,__func__,F,##A)
 
-#endif /* FSTD_LOG_H */
+#define WE(F,A...)                                                           \
+    log_log(LOG_MODULE,LOG_WARNING,errno,__FILE__,__LINE__,__func__,F,##A)
+
+#define E(F,A...)                                                            \
+    log_log(LOG_MODULE,LOG_ERR,-1,__FILE__,__LINE__,__func__,F,##A)
+
+#define EE(F,A...)                                                           \
+    log_log(LOG_MODULE,LOG_ERR,errno,__FILE__,__LINE__,__func__,F,##A)
+
+#define C(F,A...) do {                                                       \
+    log_log(LOG_MODULE,LOG_CRIT,-1,__FILE__,__LINE__,__func__,F,##A);        \
+    exit(EXIT_FAILURE); } while (0)
+
+#define CE(F,A...) do {                                                      \
+    log_log(LOG_MODULE,LOG_CRIT,errno,__FILE__,__LINE__,__func__,F,##A);     \
+    exit(EXIT_FAILURE); } while (0)
+
+// ----- logger control interface -----
+
+void log_stderr(void);
+void log_syslog(const char *ident, int facility);
+
+void log_setlvl(int mod, int lvl);
+int log_getlvl(int mod);
+
+void log_setfancy(bool fancy);
+bool log_getfancy(void);
+
+void log_regmod(size_t modnumber, const char *modname);
+ssize_t log_modnum(const char *modname);
+ssize_t log_maxmodnum(void);
+const char* log_modname(size_t modnum);
+
+void log_setprgnam(const char *prgnam);
+
+// ----- backend -----
+void log_log(int mod, int lvl, int errn, const char *file, int line,
+    const char *func, const char *fmt, ...)
+#ifdef __GNUC__
+    __attribute__ ((format (printf, 7, 8)))
+#endif
+    ;
+
+#endif /* LIBSRSLOG_LOG_H */

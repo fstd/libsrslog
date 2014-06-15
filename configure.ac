@@ -8,25 +8,27 @@ AC_CONFIG_SRCDIR([src/logtest.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
-LT_PREREQ([2.4])
 AM_PROG_AR
-LT_INIT
 
 # Checks for programs.
 AM_PROG_CC_C_O
 AC_PROG_CC_C99
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+AC_PROG_RANLIB
 
-AC_CHECK_HEADERS([stddef.h stdlib.h string.h time.h])
+AC_CHECK_HEADERS([limits.h stddef.h stdlib.h string.h syslog.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
 AC_TYPE_SIZE_T
+AC_TYPE_SSIZE_T
 
 # Checks for library functions.
+AC_FUNC_MALLOC
 AC_FUNC_STRERROR_R
-AC_CHECK_FUNCS([socket strdup])
+AC_CHECK_FUNCS([strchr strdup strtol])
+
 
 # Checks for header files (1).
 AC_CONFIG_FILES([Makefile
